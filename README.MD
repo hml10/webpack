@@ -288,7 +288,7 @@
 		        '@babel/preset-env',
 		        {
 		          useBuiltIns: 'usage',  // 按需引入需要使用polyfill
-		          corejs: { version: 3 }, // 解决warn
+		          corejs: { version: 3 }, // 解决warn、解决不能找到core-js的问题
 		          targets: { // 指定兼容性处理哪些浏览器
 		            "chrome": "58",
 		            "ie": "9",
