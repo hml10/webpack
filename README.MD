@@ -8,6 +8,7 @@
 	Model:工作模式，可选：开发模式、生产模式
 
 ###2.webpack配置文件的整体结构
+
 	module.exports = {	
 	  entry: '', //入口
 	  output: {},//输出
