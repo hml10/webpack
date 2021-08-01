@@ -1,115 +1,158 @@
-/*
-  webpack配置文件
-  提取css成单独文件 npm install --save-dev mini-css-extract-plugin 下载 引入
-  压缩css指令 npm install --save-dev optimize-css-assets-webpack-plugin 下载 引入
-  清空之前打包文件 npm i clean-webpack-plugin -D 下载 引入
-  production模式 运行指令：npm run build（html压缩在下）
-*/
-const {
-  resolve
-} = require("path");
-
+//生产环境配置
+const {resolve} = require('path')
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const {CleanWebpackPlugin} = require('clean-webpack-plugin'); // 注意要解构赋值！！！
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin');
-const {
-  CleanWebpackPlugin
-} = require("clean-webpack-plugin"); // 清空之前打包文件 (解构赋值提取 暴露的是对象)
 
-module.exports = {
-  // entry
-  entry: "./src/js/index.js",
-  // output
+module.exports  = {
+  //入口（简化写法）
+  entry:['./src/js/index.js','./src/index.html'], //入口
+  /*完整写法：
+      entry:{
+        main:'./src/js/app.js'
+      }
+    */
+  //输出
   output: {
-    path: resolve(__dirname, "../build"), // 输出目录
-    filename: "static/js/[name].js", // 输出文件名(路径已修改在static下)
-    publicPath: '/', // 公共引入资源路径(注意：本地运行有问题请看readme)
+    path: resolve(__dirname, '../dist'), //输出路径
+    filename: './js/index.js', //输出的文件名
+    publicPath: '/'// 所有输出资源在引入时的公共路径
   },
-  // loader
+  //工作模式
+  mode: 'production', //配置工作模式
+
+  //配置loader
+  /*
+    1.所有的laoder都要配置在module对象中的rules属性中
+    2.rules是一个数组，数组中的每一个对象就是一个loader
+    3.loader特点：下载后无需引入，只需声明
+  */
   module: {
-    rules: [{
-        test: /\.less$/,
-        use: [
-          // use数组执行顺序：从下到上、从右往左 (如果报错，下就完事) npm i less -D
-          {
-            // loader: "style-loader" // 下载指令 npm i style-loader -D  从js文件中找到css字符串，并创建style标签插入页面中
-            loader: MiniCssExtractPlugin.loader, // 从js文件中找到css字符串，提取css成单独css文件
-          },
-          {
-            loader: "css-loader" // 下载指令 npm i css-loader -D  将 CSS 转化成 字符串，会以 CommonJS 模块化整合js文件中
-          },
-          {
-            loader: "less-loader" // 下载指令 npm i less-loader -D  将 Less 编译成 CSS
-          },
-
-        ]
-      },
+    rules: [
+      //解析less(不完美)
       {
-        //     11kb以下的图片会被base64处理 
-        //     优点：图片不会发送额外的请求，随着html文件一起被请求下来（减少服务器压力）
-        //     缺点：体积会变的更大
-        //     所以一般针对小图片来做
-        test: /\.(png|jpg|gif)$/,
-        use: [{
-          loader: 'url-loader',
-          options: {
-            limit: 11000, //  11kb以下的图片会被base64处理 
-
-            // [ext] 原来文件扩展名是啥就是啥
-            name: "static/media/[hash:10].[ext]", // [hash:10] hash值取10位 (路径已修改在static下)
-            esModule: false,
-          }
-        }]
+        test: /\.less$/, //匹配所有的less文件
+        use: [
+          MiniCssExtractPlugin.loader,
+          'css-loader', //将less编译后的css转换成为CommonJs的一个模块。
+          {
+            loader: 'postcss-loader',
+            options: {
+              ident: 'postcss',
+              plugins: () => [
+                require('postcss-flexbugs-fixes'),
+                require('postcss-preset-env')({
+                  autoprefixer: {
+                    flexbox: 'no-2009',
+                  },
+                  stage: 3,
+                }),
+                require('postcss-normalize')(),
+              ],
+              sourceMap: true,
+            },
+          },
+          'less-loader' //将less编译为css，但不生成单独的css文件，在内存中。
+        ],
       },
+      //js语法检查
+      {
+        test: /\.js$/,  //只检测js文件
+        exclude: /node_modules/,  //排除node_modules文件夹
+        enforce: "pre",  //提前加载使用
+        use: ['eslint-loader']
+      },
+      //js语法转换+兼容性处理（es6->es5）
+      {
+        test: /\.js$/, //只检测js文件
+        exclude: /node_modules/,
+        use: {
+          loader: "babel-loader",
+          options: {
+            presets: [
+              ['@babel/preset-env', {
+                  useBuiltIns: 'usage',  // 按需引入需要使用polyfill
+                  corejs: { version: 3 }, // 解决不能够找到core-js的问题
+                  targets: { // 指定兼容性处理哪些浏览器
+                    "chrome": "58",
+                    "ie": "9"
+                  }}]
+            ],
+            cacheDirectory: true, // 开启babel缓存
+          }
+        }
+      },
+      //使用url-loader处理样式文件中的图片
+      {
+        test: /\.(png|jpg|gif)$/,
+        use: [
+          {
+            loader: 'url-loader',
+            options: {
+              limit: 8192,//// 8kb --> 8kb以下的图片会base64处理
+              publicPath: '/images/',  // 决定图片的url路径
+              outputPath: 'images', // 决定文件本地输出路径
+              name: '[hash:5].[ext]' // 修改文件名称 [hash:8] hash值取8位  [ext] 文件扩展名
+            },
+          },
+        ],
+      },
+      //使用html-loader处理html中的标签资源
       {
         test: /\.(html)$/,
-        loader: 'html-loader',
+        use: {
+          loader: 'html-loader'
+        }
       },
+      //使用file-loader处理其他资源
       {
-        // 排除文件
-        exclude: /\.(less|jpg|png|gif|js|html)$/,
+        test: /\.(eot|svg|woff|woff2|ttf|mp3|mp4|avi)$/,  // 处理其他资源
         loader: 'file-loader',
         options: {
-          name: "static/media/[hash:10].[ext]", // hash值取10位 (路径已修改在static下)
+          outputPath: 'media',
+          name: '[hash:5].[ext]'
         }
       }
     ]
   },
-  // plugins
-  plugins: [
+  //配置插件
+  plugins:[
     new HtmlWebpackPlugin({
-      // 以 './src/index.html' 为模板创建新的html文件
-      // 新html文件结构和原来一样 并且 会自动引入webpack打包生成的js/css资源
-      template: './src/index.html',
-      // minify 用来压缩 html
+      template: './src/index.html', // 以当前文件为模板创建新的HtML(1. 结构和原来一样 2. 会自动引入打包的资源)
       minify: {
-        collapseWhitespace: true, // 去除换行符/空格
-        removeComments: true, // 去除注释
-        removeRedundantAttributes: true, // 去除默认值标签属性
-        removeScriptTypeAttributes: true, // 删除script type
-        removeStyleLinkTypeAttributes: true, // 删除link type
-        useShortDoctype: true // 使用短的doctype（html5）
+        removeComments: true, //移除注释
+        collapseWhitespace: true, //折叠所有留百
+        removeRedundantAttributes: true, //移除无用的标签
+        useShortDoctype: true,//使用短的文档声明
+        removeEmptyAttributes: true,//移除空标签
+        removeStyleLinkTypeAttributes: true,//移除rel="stylesheet"
+        keepClosingSlash: true,//自结束
+        minifyJS: true,
+        minifyCSS: true,
+        minifyURLs: true,
       }
     }),
+    new CleanWebpackPlugin(),
     new MiniCssExtractPlugin({
-      filename: "static/css/[name].css", //决定css的提取名字 (路径已修改在static下)
-      // chunkFilename: "[id].css"
+      filename: "css/[hash:5].css",
     }),
-    new OptimizeCssAssetsPlugin({
-      // assetNameRegExp: /\.css$/g, // css 压缩
-      // cssProcessor: require('cssnano'),
-      cssProcessorPluginOptions: {
-        preset: ['default', {
-          discardComments: {
-            removeAll: true
+    new OptimizeCssAssetsPlugin(
+      {
+        cssProcessorPluginOptions: {
+          preset: ['default', { discardComments: { removeAll: true } }],
+        },
+        cssProcessorOptions: { // 解决没有source map问题
+          map: {
+            inline: false,
+            annotation: true,
           }
-        }],
-      },
-      // canPrint: true
-    }),
-    // 自动删除output.path输出目录的文件
-    new CleanWebpackPlugin()
+        }
+      }
+    )
   ],
-  // mode
-  mode: "production", // 生产环境 运行指令：npm run build
+  //配置devtool实现源文件映射
+  devtool:'cheap-module-source-map'
 }
+
+
