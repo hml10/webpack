@@ -583,8 +583,10 @@
     ]
   }
   ```
-* 添加配置文件: .browserslistrc
+* 添加配置文件: .browserslistrc 网址：https://github.com/browserslist/browserslist
   ```
+  	# Browsers that we support
+	
 	last 1 version
 	> 1%
 	IE 10 # sorry
